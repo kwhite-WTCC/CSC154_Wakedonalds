@@ -1,0 +1,10 @@
+body {
+  font-family: Arial;
+  padding: 20px;
+}
+
+.meal {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+}
