@@ -283,7 +283,7 @@ const userData = localStorage.getItem("wakedonald_user")
 
 // If nothing in localStorage at all → go back to login
 if (!userData) {
-    window.location.href = "login.html"
+    window.location.href = "index.html"
 }
 
 const user = JSON.parse(userData)
@@ -294,7 +294,7 @@ document.getElementById("nav-user").textContent = "👋 " + user.name
 // Logout clears storage and goes back to login
 function logout() {
     localStorage.removeItem("wakedonald_user")
-    window.location.href = "login.html"
+    window.location.href = "index.html"
 }
 
 // ── DATA ──────────────────────────────────────
