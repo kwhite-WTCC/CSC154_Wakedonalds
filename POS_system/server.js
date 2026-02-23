@@ -2,6 +2,7 @@ const express = require("express")
 const cors    = require("cors")
 const path    = require("path")
 const authRoutes = require("./auth")
+const { router: ordersRouter, orders } = require("./routes/orders")
 
 const app  = express()
 const PORT = 8080
@@ -16,9 +17,12 @@ app.use(express.static(path.join(__dirname)))
 // ── Auth Routes ─────────────────────────────
 app.use("/api/auth", authRoutes)
 
+// ── Orders API (includes SMS on place order) ──
+app.use("/api/orders", ordersRouter)
+
 // ── Home Route ──────────────────────────────
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "login.html"))
+  res.sendFile(path.join(__dirname, "index.html"))
 })
 
 // ── Start Server ────────────────────────────

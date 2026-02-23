@@ -138,9 +138,12 @@
         .success-sub{color:var(--muted);font-size:14px;margin-bottom:28px;line-height:1.6;}
         .success-order{background:var(--surface);border-radius:10px;padding:16px;margin-bottom:24px;font-size:13px;color:var(--ink2);text-align:left;}
         .success-order strong{display:block;margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);}
+        .success-sms{margin-top:12px;font-size:13px;color:var(--green);}
+        .success-sms.muted{color:var(--muted);}
         .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:white;padding:12px 22px;border-radius:30px;font-size:13px;font-weight:500;z-index:3000;transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;}
         .toast.show{transform:translateX(-50%) translateY(0);}
         select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239e9890' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+        .sms-hint{font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;}
         @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
         @keyframes modalIn{from{opacity:0;transform:scale(0.92) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
     </style>
@@ -181,8 +184,8 @@
             <div class="customer-form">
                 <label class="form-label">Customer Name</label>
                 <input class="form-input" id="customer-name" placeholder="John Smith"/>
-                <label class="form-label">Phone Number</label>
-                <input class="form-input" id="phone-num" placeholder="e.g. 252-123-1234"/>
+                <label class="form-label">Phone Number <span class="sms-hint">— Get order confirmation by text</span></label>
+                <input class="form-input" id="phone-num" type="tel" placeholder="e.g. 252-123-1234" maxlength="20"/>
                 <label class="form-label">Special Notes</label>
                 <input class="form-input" id="special-notes" placeholder="Allergies, preferences…"/>
                 <button class="checkout-btn" onclick="placeOrder()">Place Order →</button>
@@ -435,24 +438,61 @@ function renderSummary() {
         <div class="summary-row total"><span>Total</span><span class="val">$${total.toFixed(2)}</span></div>`
 }
 
-function placeOrder() {
+const API_ORDERS = (typeof location !== 'undefined' && location.origin) ? `${location.origin}/api/orders` : 'http://localhost:8080/api/orders'
+
+async function placeOrder() {
     if (cart.length === 0) { showToast('Your cart is empty!'); return }
     const name  = document.getElementById('customer-name').value.trim() || user.name
-    const phone = document.getElementById('phone-num').value.trim() || '—'
+    const phone = document.getElementById('phone-num').value.trim() || ''
     const notes = document.getElementById('special-notes').value.trim()
     const subtotal = cart.reduce((s,i)=>s+Number(i.price)*i.qty, 0)
     const tax = subtotal * TAX
     const total = subtotal + tax
-    const orderNum = String(orders.length + 1001)
 
-    orders.push({ num:orderNum, customer:name, phone, notes, items:[...cart], subtotal, tax, total, status:'In Progress', time:new Date().toLocaleTimeString() })
+    const orderPayload = {
+        customer: name,
+        phone: phone || '—',
+        notes,
+        items: cart.map(i => ({ id: i.id, name: i.name, emoji: i.emoji, price: i.price, qty: i.qty })),
+        subtotal,
+        tax,
+        total
+    }
+
+    let orderNum = String(orders.length + 1001)
+    let smsStatus = ''
+
+    try {
+        const res = await fetch(API_ORDERS, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data.order) {
+            orderNum = data.order.num
+            orders.push({ ...data.order, num: orderNum })
+            if (data.sms) {
+                if (data.sms.sent) smsStatus = '<div class="success-sms">📱 Text confirmation sent to your phone.</div>'
+                else if (data.sms.error) smsStatus = '<div class="success-sms muted">📱 SMS not sent: ' + (data.sms.error || '') + '</div>'
+            }
+        } else {
+            throw new Error(data.message || 'Order failed')
+        }
+    } catch (err) {
+        console.warn('API failed, saving order locally:', err.message)
+        orderNum = String(orders.length + 1001)
+        orders.push({ num: orderNum, customer: name, phone: phone || '—', notes, items: [...cart], subtotal, tax, total, status: 'In Progress', time: new Date().toLocaleTimeString() })
+        smsStatus = '<div class="success-sms muted">📱 Connect to server to enable text confirmations.</div>'
+    }
 
     document.getElementById('success-details').innerHTML = `
         <strong>Order #${orderNum}</strong>
-        ${name} &nbsp;·&nbsp; ${phone}<br>
+        ${name} &nbsp;·&nbsp; ${phone || '—'}<br>
         ${cart.map(i=>`${i.emoji||'🍽️'} ${i.name} × ${i.qty}`).join('<br>')}
         <br><br><strong style="color:var(--accent)">Total: $${total.toFixed(2)}</strong>
-        ${notes?`<br><em>Note: ${notes}</em>`:''}`
+        ${notes ? `<br><em>Note: ${notes}</em>` : ''}
+        ${smsStatus}`
 
     document.getElementById('success-overlay').classList.add('open')
     cart = []
