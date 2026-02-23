@@ -2,4 +2,8 @@
 
 
 Meun Web site LINK 
-https://wakedonalds-pos.netlify.app/
+https://agent-699caf2b022e592615cc06c5--wakedonalds-pos.netlify.app/restaurant-pos
+
+
+QRcode:
+<img width="495" height="499" alt="image" src="https://github.com/user-attachments/assets/60d77bd5-38d0-4b92-8b17-e2818caf3f65" />
